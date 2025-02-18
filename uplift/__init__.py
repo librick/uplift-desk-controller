@@ -1,25 +1,41 @@
-from bleak import BleakClient, BleakGATTCharacteristic
+"""Top level package for uplift-desk"""
+
+from __future__ import annotations
+
+__author__ = """Bennett Wendorf"""
+___email___ = """bennett@bennettwendorf.dev"""
+
+from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from bleak.exc import BleakDBusError
 from bleak.uuids import normalize_uuid_16
+from bleak.backends.device import BLEDevice
 from typing import Self
 import time
 
-from utils import height_conv_to_in
+from .utils import height_conv_to_in
 
-desk_height_uuid = normalize_uuid_16(0xfe62)
-desk_control_uuid = normalize_uuid_16(0xfe61)
+_primary_service_uuid_for_discovery  = normalize_uuid_16(0xfe60)
 
-wake_uuid = [0xf1, 0xf1, 0x00, 0x00, 0x00, 0x7e] # The content of this command actually doesn't seem to matter, the desk just needs to wake up
-sit_preset_uuid = [0xf1, 0xf1, 0x05, 0x00, 0x05, 0x7e]
-stand_preset_uuid = [0xf1, 0xf1, 0x06, 0x00, 0x06, 0x7e]
-raise_button_uuid = [0xf1, 0xf1, 0x01, 0x00, 0x01, 0x7e]
-lower_button_uuid = [0xf1, 0xf1, 0x02, 0x00, 0x02, 0x7e]
-status_uuid = [0xf1, 0xf1, 0x07, 0x00, 0x07, 0x7e]
+_desk_height_uuid = normalize_uuid_16(0xfe62)
+_desk_control_uuid = normalize_uuid_16(0xfe61)
 
-timeout = 8.0 # The desk times out it's "awake" state after 10 seconds of inactivity, but it takes this code about a 2 seconds to figure out that the desk is no longer awake
+_wake_uuid = [0xf1, 0xf1, 0x00, 0x00, 0x00, 0x7e] # The content of this command actually doesn't seem to matter, the desk just needs to wake up
+_sit_preset_uuid = [0xf1, 0xf1, 0x05, 0x00, 0x05, 0x7e]
+_stand_preset_uuid = [0xf1, 0xf1, 0x06, 0x00, 0x06, 0x7e]
+_raise_button_uuid = [0xf1, 0xf1, 0x01, 0x00, 0x01, 0x7e]
+_lower_button_uuid = [0xf1, 0xf1, 0x02, 0x00, 0x02, 0x7e]
+_status_uuid = [0xf1, 0xf1, 0x07, 0x00, 0x07, 0x7e]
+
+_scanner_timeout = 10.0
+
+def discover(scanner: BleakScanner = None) -> list[BLEDevice]:
+    if scanner is None:
+        scanner = BleakScanner()
+    
+    return scanner.discover(timeout=_scanner_timeout, service_uuids=[_primary_service_uuid_for_discovery])
 
 class Desk:
-    def __init__(self, address, name, bleak_client: BleakClient = None) -> Self:
+    def __init__(self, address: str, name: str, bleak_client: BleakClient = None) -> Self:
         self.address = address
         self.name = name
         self._height: float = 0.0
@@ -46,7 +62,7 @@ class Desk:
             raise Exception("No bleak client provided")
         
         await self._awaken(client)
-        await client.write_gatt_char(desk_control_uuid, stand_preset_uuid, False)
+        await client.write_gatt_char(_desk_control_uuid, _stand_preset_uuid, False)
 
     async def move_to_sitting(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -55,7 +71,7 @@ class Desk:
             raise Exception("No bleak client provided")
         
         await self._awaken(client)
-        await client.write_gatt_char(desk_control_uuid, sit_preset_uuid, False)
+        await client.write_gatt_char(_desk_control_uuid, _sit_preset_uuid, False)
 
     async def press_raise(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -64,7 +80,7 @@ class Desk:
             raise Exception("No bleak client provided")
         
         await self._awaken(client)
-        await client.write_gatt_char(desk_control_uuid, raise_button_uuid, False)
+        await client.write_gatt_char(_desk_control_uuid, _raise_button_uuid, False)
 
     async def press_lower(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -73,7 +89,7 @@ class Desk:
             raise Exception("No bleak client provided")
         
         await self._awaken(client)
-        await client.write_gatt_char(desk_control_uuid, lower_button_uuid, False)
+        await client.write_gatt_char(_desk_control_uuid, _lower_button_uuid, False)
 
     async def start_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -81,7 +97,7 @@ class Desk:
         if (client is None):
             raise Exception("No bleak client provided")
         
-        await client.start_notify(desk_height_uuid, self._height_notify_callback)
+        await client.start_notify(_desk_height_uuid, self._height_notify_callback)
 
     async def stop_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -90,7 +106,7 @@ class Desk:
             raise Exception("No bleak client provided")
         
         try:
-            await client.stop_notify(desk_height_uuid)
+            await client.stop_notify(_desk_height_uuid)
         except BleakDBusError:
             pass
 
@@ -101,8 +117,8 @@ class Desk:
             raise Exception("No bleak client provided")
         
         self._last_action_time = time.time()
-        await client.write_gatt_char(desk_control_uuid, status_uuid, False)
-        self._height = height_conv_to_in(await client.read_gatt_char(desk_height_uuid))
+        await client.write_gatt_char(_desk_control_uuid, _status_uuid, False)
+        self._height = height_conv_to_in(await client.read_gatt_char(_desk_height_uuid))
         return self.height
 
     def __str__(self):
@@ -134,4 +150,4 @@ class Desk:
         if (client is None):
             raise Exception("No bleak client provided")
 
-        await bleak_client.write_gatt_char(desk_control_uuid, wake_uuid, False)
+        await bleak_client.write_gatt_char(_desk_control_uuid, _wake_uuid, False)

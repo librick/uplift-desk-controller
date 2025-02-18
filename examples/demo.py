@@ -5,14 +5,11 @@ from bleak import BleakScanner, BleakClient
 from bleak.uuids import normalize_uuid_16
 from bleak.backends.device import BLEDevice
 
-from desk import Desk
+from uplift import Desk, discover
 
 primary_service_uuid_for_discovery  = normalize_uuid_16(0xfe60)
 
-timeout = 2.0 # TODO: This will need to be at least 10 later on for integration with HomeAssistant
-
-async def discover_desks() -> list[BLEDevice]:
-    return await BleakScanner.discover(timeout, service_uuids=[primary_service_uuid_for_discovery])
+timeout = 10.0
 
 def print_command_options():
 
@@ -25,18 +22,16 @@ def print_command_options():
     print("    e - exit")
 
 async def main():
-    desks: list[BLEDevice] = await discover_desks()
+    desks: list[BLEDevice] = await discover()
     if len(desks) == 0:
         print("No desks found")
         return
     print(f"Found {len(desks)} desk(s)")
     for desk in desks:
-        print(f"    - {desk.name} - {desk.address}")
-        
+        print(f"    - {desk.name} - {desk.address}")       
 
     first_desk = desks[0]
     print(f"Connecting to {first_desk.name} - {first_desk.address}...")
-
 
     async with BleakClient(first_desk) as bleak_client:
         print(f"Connected to {bleak_client.address}")
@@ -79,4 +74,5 @@ async def main():
         await desk.stop_notify()
         print(f"Height: {desk.height} in")
 
-asyncio.run(main())
+if __name__ == "__main__":
+    asyncio.run(main())
