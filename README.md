@@ -67,6 +67,8 @@ Unfortunately, like the app, this controller is a bit limited in what can be con
 
 For now, it is also not possible to configure the desk settings such as name, presets, etc. through this controller. To use this project effectively, you'll want to first install the Uplift Desk app on iOS or Android and set up some of the basic settings (including sit and stand presets).
 
+> Note: When using this project, no other device can be connected to the desk or it will be undiscoverable. This means that the Uplift Desk app needs to be either disconnected or closed for this application to work.
+
 ### Built With
 
 This project is written in Python using the following libraries:

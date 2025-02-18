@@ -19,7 +19,7 @@ Homepage = "https://github.com/Bennett-Wendorf/uplift-desk-controller"
 Issues = "https://github.com/Bennett-Wendorf/uplift-desk-controller/issues"
 
 [build-system]
-requires = ["hatchling", "bleak", "asyncio"]
+requires = ["hatchling", "bleak"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
