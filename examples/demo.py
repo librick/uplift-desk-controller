@@ -21,6 +21,9 @@ def print_command_options():
     print("    l - press_lower")
     print("    e - exit")
 
+async def async_height_notify_callback(desk: Desk):
+    print(f"Received height update: {desk.height}; Moving: {desk.moving}")
+
 async def main():
     desks: list[BLEDevice] = await discover()
     if len(desks) == 0:
@@ -37,6 +40,8 @@ async def main():
         print(f"Connected to {bleak_client.address}")
         
         desk = Desk(first_desk.address, first_desk.name, bleak_client)
+
+        desk.register_callback(async_height_notify_callback)
 
         await desk.start_notify()
         await desk.read_height(bleak_client)

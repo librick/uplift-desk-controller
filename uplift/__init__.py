@@ -131,7 +131,7 @@ class Desk:
     def __str__(self):
         return f"{self.name} - {self.address}"
 
-    def _height_notify_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
+    async def _height_notify_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
         self._height = height_conv_to_in(data)
 
         if (not self.moving
