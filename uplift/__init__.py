@@ -92,7 +92,6 @@ class Desk:
         await self._awaken(client)
         await client.write_gatt_char(_desk_control_uuid, _lower_button_uuid, False)
 
-    # TODO: Add the ability to register a different callback than this one for notifications
     async def start_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
 
@@ -152,7 +151,7 @@ class Desk:
             self._last_heights.pop(0)
         
         for callback in self._height_notification_callbacks:
-            callback(self)
+            await callback(self)
 
     async def _awaken(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
