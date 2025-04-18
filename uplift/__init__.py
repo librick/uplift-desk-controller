@@ -134,8 +134,7 @@ class Desk:
     async def _height_notify_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
         self._height = height_conv_to_in(data)
 
-        if (not self.moving
-            and (len(self._last_heights) == 0 or self._last_heights[-1] != self._height)):
+        if (len(self._last_heights) > 0 and self._last_heights[-1] != self._height):
             self._set_moving(True)
 
         self._last_heights.append(self._height)
