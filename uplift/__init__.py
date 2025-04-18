@@ -42,6 +42,7 @@ class Desk:
         self.bleak_client = bleak_client
         self._moving = False
         self._last_heights = []
+        self._height_notification_callbacks: list[callable] = []
 
     @property
     def height(self):
@@ -91,6 +92,7 @@ class Desk:
         await self._awaken(client)
         await client.write_gatt_char(_desk_control_uuid, _lower_button_uuid, False)
 
+    # TODO: Add the ability to register a different callback than this one for notifications
     async def start_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
 
@@ -121,11 +123,16 @@ class Desk:
         self._height = height_conv_to_in(await client.read_gatt_char(_desk_height_uuid))
         return self.height
 
+    def register_callback(self, callback: callable) -> None:
+        self._height_notification_callbacks.append(callback)
+
+    def deregister_callback(self, callable: callable) -> None:
+        self._height_notification_callbacks.remove(callback)
+
     def __str__(self):
         return f"{self.name} - {self.address}"
 
     def _height_notify_callback(self, sender: BleakGATTCharacteristic, data: bytearray):
-        print(f"Received height update: {height_conv_to_in(data)}; Moving: {self.moving}")
         self._height = height_conv_to_in(data)
 
         if (not self.moving
@@ -143,6 +150,9 @@ class Desk:
                 self._set_moving(False)
 
             self._last_heights.pop(0)
+        
+        for callback in self._height_notification_callbacks:
+            callback(self)
 
     async def _awaken(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
