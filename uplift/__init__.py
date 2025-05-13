@@ -1,6 +1,7 @@
 """Top level package for uplift-desk"""
 
 from __future__ import annotations
+from enum import Enum, unique
 
 __author__ = """Bennett Wendorf"""
 __email__ = """bennett@bennettwendorf.dev"""
@@ -28,20 +29,18 @@ _char_vendor_desk_height = normalize_uuid_16(0xFE62)
 # Write. All desk commands (wake, sit-preset, stand-preset, raise, lower, request status) are sent as 6-byte payloads.
 _char_vendor_desk_control = normalize_uuid_16(0xFE61)
 
-# --- Command Payloads ---
-_cmd_wake = [
-    0xF1,
-    0xF1,
-    0x00,
-    0x00,
-    0x00,
-    0x7E,
-]  # The content of this command actually doesn't seem to matter, the desk just needs to wake up
-_cmd_vendor_preset_sit = [0xF1, 0xF1, 0x05, 0x00, 0x05, 0x7E]
-_cmd_vendor_preset_stand = [0xF1, 0xF1, 0x06, 0x00, 0x06, 0x7E]
-_cmd_vendor_button_raise = [0xF1, 0xF1, 0x01, 0x00, 0x01, 0x7E]
-_cmd_vendor_button_lower = [0xF1, 0xF1, 0x02, 0x00, 0x02, 0x7E]
-_cmd_vendor_status = [0xF1, 0xF1, 0x07, 0x00, 0x07, 0x7E]
+
+@unique
+class DeskCommand(Enum):
+    WAKE = bytes(
+        [0xF1, 0xF1, 0x00, 0x00, 0x00, 0x7E]
+    )  # The content of this command actually doesn't seem to matter, the desk just needs to wake up
+    MOVE_TO_PRESET_SIT = bytes([0xF1, 0xF1, 0x05, 0x00, 0x05, 0x7E])
+    MOVE_TO_PRESET_STAND = bytes([0xF1, 0xF1, 0x06, 0x00, 0x06, 0x7E])
+    PRESS_BUTTON_RAISE = bytes([0xF1, 0xF1, 0x01, 0x00, 0x01, 0x7E])
+    PRESS_BUTTON_LOWER = bytes([0xF1, 0xF1, 0x02, 0x00, 0x02, 0x7E])
+    REQUEST_STATUS = bytes([0xF1, 0xF1, 0x07, 0x00, 0x07, 0x7E])
+
 
 _scanner_timeout = 10.0
 
@@ -87,33 +86,42 @@ class Desk:
         self._moving = value
         self._last_action_time = time.time()
 
-    async def move_to_standing(self, bleak_client: BleakClient = None) -> None:
+    async def _send_desk_control_command(
+        self, command: DeskCommand, bleak_client: BleakClient = None
+    ) -> None:
         client = self._get_client(bleak_client)
-        await self._awaken(client)
-        await client.write_gatt_char(
-            _char_vendor_desk_control, _cmd_vendor_preset_stand, False
-        )
+        self._last_action_time = time.time()
+        if command is not DeskCommand.WAKE:
+            await client.write_gatt_char(
+                _char_vendor_desk_control, DeskCommand.WAKE.value, False
+            )
+        await client.write_gatt_char(_char_vendor_desk_control, command.value, False)
+
+    async def awaken(self, bleak_client: BleakClient = None) -> None:
+        await self._send_desk_control_command(DeskCommand.WAKE, bleak_client)
 
     async def move_to_sitting(self, bleak_client: BleakClient = None) -> None:
-        client = self._get_client(bleak_client)
-        await self._awaken(client)
-        await client.write_gatt_char(
-            _char_vendor_desk_control, _cmd_vendor_preset_sit, False
+        await self._send_desk_control_command(
+            DeskCommand.MOVE_TO_PRESET_SIT, bleak_client
+        )
+
+    async def move_to_standing(self, bleak_client: BleakClient = None) -> None:
+        await self._send_desk_control_command(
+            DeskCommand.MOVE_TO_PRESET_STAND, bleak_client
         )
 
     async def press_raise(self, bleak_client: BleakClient = None) -> None:
-        client = self._get_client(bleak_client)
-        await self._awaken(client)
-        await client.write_gatt_char(
-            _char_vendor_desk_control, _cmd_vendor_button_raise, False
+        await self._send_desk_control_command(
+            DeskCommand.PRESS_BUTTON_RAISE, bleak_client
         )
 
     async def press_lower(self, bleak_client: BleakClient = None) -> None:
-        client = self._get_client(bleak_client)
-        await self._awaken(client)
-        await client.write_gatt_char(
-            _char_vendor_desk_control, _cmd_vendor_button_lower, False
+        await self._send_desk_control_command(
+            DeskCommand.PRESS_BUTTON_LOWER, bleak_client
         )
+
+    async def request_status(self, bleak_client: BleakClient = None) -> None:
+        await self._send_desk_control_command(DeskCommand.REQUEST_STATUS, bleak_client)
 
     async def start_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
@@ -136,17 +144,15 @@ class Desk:
         except BleakDBusError:
             pass
 
-    async def read_device_name(self, bleak_client: BleakClient = None):
+    async def read_device_name(self, bleak_client: BleakClient = None) -> str:
         client = self._get_client(bleak_client)
-
         data = await client.read_gatt_char(_char_std_device_name)
         name = data.decode("utf-8", errors="ignore")
-        print("Device name is:", name)
         return name
 
     async def write_desk_name(
         self, bleak_client: BleakClient = None, desk_name=None
-    ) -> float:
+    ) -> None:
         client = self._get_client(bleak_client)
 
         if desk_name is None:
@@ -156,17 +162,14 @@ class Desk:
         header = bytes([0x01, 0xFC, 0x07, len(name_bytes)])
         packet = header + name_bytes
 
-        print(f"Setting desk name: {desk_name}")
         self._last_action_time = time.time()
         await client.write_gatt_char(_char_vendor_desk_name, packet, False)
 
     async def read_height(self, bleak_client: BleakClient = None) -> float:
         client = self._get_client(bleak_client)
 
+        await self.request_status(client)
         self._last_action_time = time.time()
-        await client.write_gatt_char(
-            _char_vendor_desk_control, _cmd_vendor_status, False
-        )
         self._height = height_conv_to_in(
             await client.read_gatt_char(_char_vendor_desk_height)
         )
@@ -223,11 +226,3 @@ class Desk:
 
         for callback in self._notification_callbacks_height:
             await callback(self)
-
-    async def _awaken(self, bleak_client: BleakClient = None) -> None:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
-
-        await bleak_client.write_gatt_char(_char_vendor_desk_control, _cmd_wake, False)

@@ -69,7 +69,8 @@ async def main():
 
             if data == b"n\n":
                 print("read_device_name")
-                await desk.read_device_name()
+                device_name = await desk.read_device_name()
+                print(f"Device name: {device_name}")
             if data == b"w\n":
                 print("write_device_name")
                 name = input("Enter new device name: ")
