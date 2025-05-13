@@ -76,49 +76,40 @@ class Desk:
     def moving(self):
         return self._moving
 
+    def _get_client(self, bleak_client: BleakClient) -> BleakClient:
+        client = bleak_client or self.bleak_client
+
+        if client is None:
+            raise RuntimeError("No bleak client provided")
+        return client
+
     def _set_moving(self, value: bool):
         self._moving = value
         self._last_action_time = time.time()
 
     async def move_to_standing(self, bleak_client: BleakClient = None) -> None:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
-
+        client = self._get_client(bleak_client)
         await self._awaken(client)
         await client.write_gatt_char(
             _char_vendor_desk_control, _cmd_vendor_preset_stand, False
         )
 
     async def move_to_sitting(self, bleak_client: BleakClient = None) -> None:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
-
+        client = self._get_client(bleak_client)
         await self._awaken(client)
         await client.write_gatt_char(
             _char_vendor_desk_control, _cmd_vendor_preset_sit, False
         )
 
     async def press_raise(self, bleak_client: BleakClient = None) -> None:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
-
+        client = self._get_client(bleak_client)
         await self._awaken(client)
         await client.write_gatt_char(
             _char_vendor_desk_control, _cmd_vendor_button_raise, False
         )
 
     async def press_lower(self, bleak_client: BleakClient = None) -> None:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
-
+        client = self._get_client(bleak_client)
         await self._awaken(client)
         await client.write_gatt_char(
             _char_vendor_desk_control, _cmd_vendor_button_lower, False
@@ -126,9 +117,6 @@ class Desk:
 
     async def start_notify(self, bleak_client: BleakClient = None) -> None:
         client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
 
         await client.start_notify(
             _char_vendor_desk_name, self._notify_callback_desk_name
@@ -149,10 +137,7 @@ class Desk:
             pass
 
     async def read_device_name(self, bleak_client: BleakClient = None):
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
+        client = self._get_client(bleak_client)
 
         data = await client.read_gatt_char(_char_std_device_name)
         name = data.decode("utf-8", errors="ignore")
@@ -162,10 +147,7 @@ class Desk:
     async def write_desk_name(
         self, bleak_client: BleakClient = None, desk_name=None
     ) -> float:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
+        client = self._get_client(bleak_client)
 
         if desk_name is None:
             raise Exception("No desk_name provided")
@@ -179,10 +161,7 @@ class Desk:
         await client.write_gatt_char(_char_vendor_desk_name, packet, False)
 
     async def read_height(self, bleak_client: BleakClient = None) -> float:
-        client = bleak_client or self.bleak_client
-
-        if client is None:
-            raise Exception("No bleak client provided")
+        client = self._get_client(bleak_client)
 
         self._last_action_time = time.time()
         await client.write_gatt_char(
