@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 __author__ = """Bennett Wendorf"""
-___email___ = """bennett@bennettwendorf.dev"""
+__email__ = """bennett@bennettwendorf.dev"""
 
 from bleak import BleakScanner, BleakClient, BleakGATTCharacteristic
 from bleak.exc import BleakDBusError
